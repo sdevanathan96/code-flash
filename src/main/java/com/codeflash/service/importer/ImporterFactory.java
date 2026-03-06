@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ImporterFactory {
 
-  private final Grind150Importer grind150Importer;
+  private final Grind175Importer grind175Importer;
   private final ProblemRepository problemRepository;
   private final TagRepository tagRepository;
   private final ProblemListRepository problemListRepository;
@@ -23,7 +23,7 @@ public class ImporterFactory {
   public ProblemImporter create(ImportSource source, String param){
     return switch (source) {
        case GRIND_150 ->
-           grind150Importer;
+           grind175Importer;
 
        case LEETCODE_LIST ->
            new LeetCodeListImporter(

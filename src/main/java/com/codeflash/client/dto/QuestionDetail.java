@@ -7,8 +7,9 @@ import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record QuestionDetail(
-   @JsonProperty("titleSlug") String slug,
-   String title,
-   String difficulty,
-   List<TopicTag> topicTags
+    @JsonProperty("titleSlug") String slug,
+    String title,
+    String difficulty,
+    List<TopicTag> topicTags,
+    List<CompanyTag> companyTags  // ← add this
 ) {}

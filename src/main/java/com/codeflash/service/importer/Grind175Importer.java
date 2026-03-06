@@ -6,9 +6,7 @@ import com.codeflash.dto.RawProblemData;
 import com.codeflash.repository.ProblemListRepository;
 import com.codeflash.repository.ProblemRepository;
 import com.codeflash.repository.TagRepository;
-import com.codeflash.service.srs.SRSService;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,11 +23,11 @@ import java.util.List;
 @Slf4j
 @Component
 @Order(2)
-public class Grind150Importer extends ProblemImporter implements ApplicationRunner {
+public class Grind175Importer extends ProblemImporter implements ApplicationRunner {
 
   private final ObjectMapper objectMapper;
 
-  @Value("classpath:seed/grind150.json")
+  @Value("classpath:seed/grind175.json")
   private Resource grindResource;
 
   private record Grind150Json(List<Grind150Problem> data) {}
@@ -41,7 +39,7 @@ public class Grind150Importer extends ProblemImporter implements ApplicationRunn
       @JsonProperty("pattern") List<String> tags
   ) {}
 
-  public Grind150Importer(
+  public Grind175Importer(
       ProblemRepository problemRepository,
       TagRepository tagRepository,
       ProblemListRepository problemListRepository,
@@ -80,7 +78,8 @@ public class Grind150Importer extends ProblemImporter implements ApplicationRunn
               p.slug(),
               p.title(),
               p.difficulty(),
-              p.tags()
+              p.tags(),
+              List.of()
           ))
           .toList();
     } catch (IOException e) {

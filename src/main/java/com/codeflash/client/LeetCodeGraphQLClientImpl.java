@@ -24,15 +24,16 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
   private final int timeoutSeconds;
 
   private static final String FETCH_QUESTION_QUERY = """
-     query getQuestion($titleSlug: String!) {
-         question(titleSlug: $titleSlug) {
-             titleSlug
-             title
-             difficulty
-             topicTags { name }
-         }
-     }
-     """;
+    query getQuestion($titleSlug: String!) {
+        question(titleSlug: $titleSlug) {
+            titleSlug
+            title
+            difficulty
+            topicTags { name }
+            companyTags { name slug }
+        }
+    }
+    """;
 
   private static final String FETCH_LIST_PROBLEMS_QUERY = """
      query getFavoriteQuestionList($favoriteIdHash: String!) {
@@ -74,14 +75,17 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
      """;
 
   public LeetCodeGraphQLClientImpl(LeetCodeConfig config, ObjectMapper objectMapper){
-   this.objectMapper = objectMapper;
-   this.timeoutSeconds = config.getTimeoutSeconds();
-   this.webClient = WebClient.builder()
-       .baseUrl(config.getBaseUrl())
-       .defaultHeader("Content-Type", "application/json")
-       .defaultHeader("Referer", "https://leetcode.com")
-       .defaultHeader("Cookie", "LEETCODE_SESSION=" + config.getSessionCookie())
-       .build();
+    this.objectMapper = objectMapper;
+    this.timeoutSeconds = config.getTimeoutSeconds();
+    this.webClient = WebClient.builder()
+        .baseUrl(config.getBaseUrl())
+        .defaultHeader("Content-Type", "application/json")
+        .defaultHeader("Referer", "https://leetcode.com")
+        .defaultHeader("Cookie",
+            "LEETCODE_SESSION=" + config.getSessionCookie() +
+                "; csrftoken=" + config.getCsrfToken())  // ← add csrftoken
+        .defaultHeader("x-csrftoken", config.getCsrfToken())  // ← also needed
+        .build();
   }
 
   @Override
@@ -183,7 +187,9 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
 
   private RawProblemData toRawProblemData(QuestionDetail q) {
     List<String> tags = q.topicTags() == null ? List.of() :
-       q.topicTags().stream().map(TopicTag::name).toList();
-    return new RawProblemData(q.slug(), q.title(), q.difficulty(), tags);
+        q.topicTags().stream().map(TopicTag::name).toList();
+    List<String> companies = q.companyTags() == null ? List.of() :
+        q.companyTags().stream().map(CompanyTag::name).toList();
+    return new RawProblemData(q.slug(), q.title(), q.difficulty(), tags, companies);
   }
 }

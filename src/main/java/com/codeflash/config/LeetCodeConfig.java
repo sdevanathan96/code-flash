@@ -60,6 +60,7 @@ import org.springframework.validation.annotation.Validated;
 public class LeetCodeConfig {
 
   private String sessionCookie;
+  private String csrfToken;
   private String baseUrl = "https://leetcode.com/graphql";
   private int timeoutSeconds = 10;
 }

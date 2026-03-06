@@ -12,20 +12,31 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
 
   flyway:
     enabled: false
 
-  logging:
-    level:
-      org.flywaydb: DEBUG
-      com.zaxxer.hikari: DEBUG
+logging:
+  level:
+    org.flywaydb: DEBUG
+    com.zaxxer.hikari: DEBUG
 
 leetcode:
-  session-cookie: ""   # LEETCODE_SESSION cookie value
+  session-cookie: ""
+  csrf-token: ""
 
 algorithm:
   type: velocity       # Options: sm2 | velocity
+
+enrichment:
+  enabled: true
+  batch-size: 100
+  interval-days: 1
 
 backup:
   directory: ${user.home}/codeflash-backups
