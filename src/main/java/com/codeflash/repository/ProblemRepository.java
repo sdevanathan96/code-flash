@@ -18,10 +18,15 @@ public interface ProblemRepository extends JpaRepository<ProblemEntity, Long> {
   boolean existsBySlug(String slug);
   List<ProblemEntity> findByDifficulty(Difficulty difficulty);
 
+  @Query("SELECT p FROM ProblemEntity p")
   @EntityGraph(attributePaths = {"tags", "lists"})
   List<ProblemEntity> findAllWithTagsAndLists();
 
-  @Query("SELECT DISTINCT p FROM ProblemEntity p JOIN p.tags t WHERE t.name = :tag")
+  @Query("""
+     SELECT DISTINCT p FROM ProblemEntity p
+     JOIN p.tags t
+     WHERE t.name = :tag
+     """)
   List<ProblemEntity> findByTagName(@Param("tag") String tag);
 
   @Query("SELECT DISTINCT p FROM ProblemEntity p JOIN p.lists l WHERE l.name = :listName")
@@ -44,4 +49,31 @@ public interface ProblemRepository extends JpaRepository<ProblemEntity, Long> {
      ORDER BY s.nextDueDate ASC
      """)
   List<ProblemEntity> findDueProblemsInList(@Param("listName") String listName);
+
+  @Query("""
+    SELECT DISTINCT p FROM ProblemEntity p
+    JOIN SRSStateEntity s ON s.problemId = p.id
+    JOIN p.lists l
+    JOIN p.tags t
+    WHERE s.nextDueDate <= CURRENT_DATE
+    AND l.name = :listName
+    AND t.name = :tagName
+    ORDER BY s.nextDueDate ASC
+    """)
+  List<ProblemEntity> findDueProblemsInListAndTag(
+      @Param("listName") String listName,
+      @Param("tagName") String tagName
+  );
+
+  @Query("""
+    SELECT DISTINCT p FROM ProblemEntity p
+    JOIN p.lists l
+    JOIN p.tags t
+    WHERE l.name = :listName
+    AND t.name = :tagName
+    """)
+  List<ProblemEntity> findByListNameAndTagName(
+      @Param("listName") String listName,
+      @Param("tagName") String tagName
+  );
 }

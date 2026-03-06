@@ -10,6 +10,8 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Data
 @NoArgsConstructor
@@ -31,6 +33,7 @@ public class ProblemEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, columnDefinition = "difficulty")
+  @JdbcTypeCode(SqlTypes.NAMED_ENUM)
   private Difficulty difficulty;
 
   @Column(length = 500)

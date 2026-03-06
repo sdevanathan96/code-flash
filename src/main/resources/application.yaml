@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/codeflash
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  logging:
+    level:
+      org.flywaydb: DEBUG
+      com.zaxxer.hikari: DEBUG
+
+leetcode:
+  session-cookie: ""   # LEETCODE_SESSION cookie value
+
+algorithm:
+  type: velocity       # Options: sm2 | velocity
+
+backup:
+  directory: ${user.home}/codeflash-backups
+  db-name: codeflash
+  db-user: postgres
+  retention-days: 30
+  restore:
+    enabled: false  # Set true only when you want auto-restore on startup
