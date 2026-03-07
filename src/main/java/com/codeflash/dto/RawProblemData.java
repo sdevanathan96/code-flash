@@ -7,5 +7,5 @@ public record RawProblemData(
     String title,
     String difficulty,
     List<String> tags,
-    List<String> companyTags  // ← add this, empty list if not fetched
+    List<String> companyTags
 ) {}

@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,10 +36,10 @@ public class ProblemPersistenceHelper {
   private final EnrichmentConfig enrichmentConfig;
 
   @Transactional
-  public void saveOneProblem(RawProblemData raw, ProblemListEntity list) {
-    Set<TagEntity> topicTags = resolveTags(raw.tags());
-    Set<TagEntity> companyTags = resolveTags(raw.companyTags());
-    topicTags.addAll(companyTags);  // merge into one set
+  public void saveOneProblem(RawProblemData raw, ProblemListEntity list, int position) {
+    Set<TagEntity> topicTags = resolveTags(raw.tags(), "TOPIC");
+    Set<TagEntity> companyTags = resolveTags(raw.companyTags(), "COMPANY");
+    topicTags.addAll(companyTags);
 
     ProblemEntity entity = ProblemEntity.builder()
         .slug(raw.slug())
@@ -49,41 +50,26 @@ public class ProblemPersistenceHelper {
         .lists(Set.of(list))
         .build();
     ProblemEntity saved = problemRepository.save(entity);
+    setPosition(saved.getId(), list.getId(), position);
     srsService.initializeSRSState(saved.getId());
   }
 
-  private Set<TagEntity> resolveTags(List<String> tagNames) {
+  private Set<TagEntity> resolveTags(List<String> tagNames, String tagType) {
     return tagNames.stream()
         .map(name -> tagRepository.findByNameIgnoreCase(name)
             .orElseGet(() -> tagRepository.save(
-                TagEntity.builder().name(name).build()
+                TagEntity.builder().name(name).tagType(tagType).build()
             )))
         .collect(Collectors.toSet());
   }
   @Transactional
-  public void linkToListIfAbsent(String slug, ProblemListEntity list) {
+  public void linkToListIfAbsent(String slug, ProblemListEntity list, int position) {
     ProblemEntity entity = problemRepository.findBySlug(slug).orElseThrow();
     if (!entity.getLists().contains(list)) {
       entity.getLists().add(list);
       problemRepository.save(entity);
+      setPosition(entity.getId(), list.getId(), position);
     }
-  }
-
-  @Transactional
-  public void enrichProblemFromApi(String slug, LeetCodeGraphQLClient client) {
-    ProblemEntity entity = problemRepository.findBySlug(slug).orElse(null);
-    if (entity == null) return;
-
-    client.fetchProblemMetadata(slug).ifPresent(raw -> {
-      Set<TagEntity> existingTags = new HashSet<>(entity.getTags());
-      Set<TagEntity> topicTags = resolveTags(raw.tags());
-      Set<TagEntity> companyTags = resolveTags(raw.companyTags());
-      existingTags.addAll(topicTags);
-      existingTags.addAll(companyTags);
-      entity.setTags(existingTags);
-      entity.setDifficulty(Difficulty.fromApi(raw.difficulty()));
-      problemRepository.save(entity);
-    });
   }
 
   @Transactional
@@ -110,10 +96,8 @@ public class ProblemPersistenceHelper {
       for (ProblemEntity p : batch) {
         try {
           client.fetchProblemMetadata(p.getSlug()).ifPresent(raw -> {
-            Set<TagEntity> merged = new HashSet<>(p.getTags());
-            merged.addAll(resolveTagsFromCache(raw.tags(), tagCache));
-            merged.addAll(resolveTagsFromCache(raw.companyTags(), tagCache));
-            p.setTags(merged);
+            p.getTags().addAll(resolveTagsFromCache(raw.tags(), tagCache, "TOPIC"));
+            p.getTags().addAll(resolveTagsFromCache(raw.companyTags(), tagCache, "COMPANY"));
             p.setDifficulty(Difficulty.fromApi(raw.difficulty()));
           });
           totalEnriched++;
@@ -133,19 +117,43 @@ public class ProblemPersistenceHelper {
   }
 
   private Set<TagEntity> resolveTagsFromCache(
-      List<String> tagNames, Map<String, TagEntity> tagCache) {
-
+      List<String> tagNames, Map<String, TagEntity> tagCache, String tagType) {
     Set<TagEntity> result = new HashSet<>();
     for (String name : tagNames) {
       String key = name.toLowerCase();
-      TagEntity tag = tagCache.computeIfAbsent(key, k -> {
-        TagEntity newTag = tagRepository.saveAndFlush(
-            TagEntity.builder().name(name).build()
-        );
-        return newTag;
-      });
+      TagEntity tag = tagCache.computeIfAbsent(key, k ->
+          tagRepository.findByNameIgnoreCase(name)
+              .orElseGet(() -> {
+                try {
+                  return tagRepository.saveAndFlush(
+                      TagEntity.builder().name(name).tagType(tagType).build());
+                } catch (DataIntegrityViolationException e) {
+                  return tagRepository.findByNameIgnoreCase(name)
+                      .orElseThrow();
+                }
+              })
+      );
+
+      if (!tagType.equals(tag.getTagType())) {
+        tag.setTagType(tagType);
+        tagRepository.save(tag);
+      }
+
       result.add(tag);
     }
     return result;
+  }
+
+  private void setPosition(Long problemId, Long listId, int position) {
+    entityManager.createNativeQuery("""
+        UPDATE problem_list_items
+        SET position = :position
+        WHERE problem_id = :problemId
+        AND problem_list_id = :listId
+        """)
+        .setParameter("position", position)
+        .setParameter("problemId", problemId)
+        .setParameter("listId", listId)
+        .executeUpdate();
   }
 }

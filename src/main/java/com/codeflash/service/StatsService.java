@@ -4,6 +4,7 @@ import com.codeflash.dto.response.DashboardSummaryResponse;
 import com.codeflash.dto.response.PatternStatsResponse;
 import com.codeflash.entity.ProblemEntity;
 import com.codeflash.entity.SolveRecordEntity;
+import com.codeflash.entity.TagEntity;
 import com.codeflash.repository.ProblemRepository;
 import com.codeflash.repository.SolveRecordRepository;
 import com.codeflash.repository.SRSStateRepository;
@@ -88,7 +89,9 @@ public class StatsService {
         .toList();
 
     List<String> allTags = allProblems.stream()
-        .flatMap(p -> p.getTags().stream().map(t -> t.getName()))
+        .flatMap(p -> p.getTags().stream()
+            .filter(t -> "TOPIC".equals(t.getTagType()))
+            .map(TagEntity::getName))
         .distinct().sorted().toList();
 
     return allTags.stream().map(tag -> {

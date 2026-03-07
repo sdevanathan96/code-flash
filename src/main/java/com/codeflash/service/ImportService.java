@@ -16,7 +16,7 @@ public class ImportService {
   private final ImporterFactory importerFactory;
 
   public ImportResult runImport(ImportRequest request){
-    if (request.source() != ImportSource.GRIND_150
+    if (request.source() != ImportSource.GRIND_175
             && (request.param() == null || request.param().isBlank())) {
         throw new IllegalArgumentException(
             "param is required for source: " + request.source());

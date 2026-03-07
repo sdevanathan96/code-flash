@@ -5,4 +5,4 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record StudyPlanDetail(String name, List<QuestionDetail> questions) {}
+public record StudyPlanDetail(String name, List<StudyPlanSubGroup> planSubGroups) {}

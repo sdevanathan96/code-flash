@@ -1,9 +1,3 @@
-
-// ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-// ┃  FILE 6d: controller/GlobalExceptionHandler.java                        ┃
-// ┃  Purpose: Consistent error responses for all handled exceptions         ┃
-// ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
 package com.codeflash.controller.rest;
 
 import com.codeflash.dto.response.ErrorResponse;

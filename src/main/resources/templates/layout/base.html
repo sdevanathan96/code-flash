@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" th:fragment="layout(content)">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>code-flash</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css"/>
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css"/>
+
+  <style>
+    /* ── Dark mode variables ── */
+    [data-bs-theme="dark"] {
+      --cf-bg-secondary: #1e1e2e;
+      --cf-card-bg: #2a2a3e;
+    }
+    [data-bs-theme="light"] {
+      --cf-bg-secondary: #f8f9fa;
+      --cf-card-bg: #ffffff;
+    }
+
+    /* ── Difficulty badges ── */
+    .badge-easy   { background-color: #28a745; color: white; }
+    .badge-medium { background-color: #ffc107; color: black; }
+    .badge-hard   { background-color: #dc3545; color: white; }
+
+    /* ── Due label colors ── */
+    .due-today    { color: #dc3545; font-weight: 600; }
+    .due-overdue  { color: #dc3545; font-weight: 700; }
+    .due-tomorrow { color: #fd7e14; }
+    .due-future   { color: #6c757d; }
+
+    /* ── Mastery bar ── */
+    .mastery-bar { height: 8px; border-radius: 4px; background: #e9ecef; }
+    .mastery-fill { height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, #dc3545, #ffc107, #28a745); }
+
+    /* ── Trend arrows ── */
+    .trend-improving { color: #28a745; }
+    .trend-declining { color: #dc3545; }
+    .trend-stable    { color: #6c757d; }
+    .trend-new       { color: #0dcaf0; }
+
+    /* ── Heatmap ── */
+    .heatmap-cell {
+      width: 12px; height: 12px; border-radius: 2px;
+      display: inline-block; margin: 1px;
+    }
+
+    /* ── Confidence buttons ── */
+    .btn-again  { background-color: #dc3545; color: white; border: none; }
+    .btn-hard   { background-color: #fd7e14; color: white; border: none; }
+    .btn-good   { background-color: #0d6efd; color: white; border: none; }
+    .btn-easy   { background-color: #28a745; color: white; border: none; }
+    .btn-again:hover { background-color: #bb2d3b; color: white; }
+    .btn-hard:hover  { background-color: #e35d00; color: white; }
+    .btn-good:hover  { background-color: #0b5ed7; color: white; }
+    .btn-easy:hover  { background-color: #157347; color: white; }
+  </style>
+</head>
+
+<body>
+<!-- ── Navbar ── -->
+<nav class="navbar navbar-expand-lg sticky-top border-bottom" id="mainNav">
+  <div class="container-fluid">
+
+    <!-- Logo -->
+    <a class="navbar-brand fw-bold" href="/">
+      <i class="bi bi-lightning-charge-fill text-warning"></i> code-flash
+    </a>
+
+    <!-- Nav links -->
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/"><i class="bi bi-house"></i> Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/problems"><i class="bi bi-list-ul"></i> Problems</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/review"><i class="bi bi-play-circle"></i> Review</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/stats"><i class="bi bi-bar-chart"></i> Stats</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/import"><i class="bi bi-cloud-download"></i> Import</a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Dark/light toggle -->
+    <button class="btn btn-sm btn-outline-secondary ms-2" id="themeToggle"
+            onclick="toggleTheme()" title="Toggle dark/light mode">
+      <i class="bi bi-moon-fill" id="themeIcon"></i>
+    </button>
+  </div>
+</nav>
+
+<!-- ── Page content slot — each page fills this in ── -->
+<main class="container-fluid py-4">
+  <th:block th:replace="${content}"/>
+</main>
+
+<!-- Bootstrap JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+
+<script>
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    document.getElementById('themeIcon').className =
+        theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-bs-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('cf-theme', next);
+    applyTheme(next);
+  }
+
+  applyTheme(localStorage.getItem('cf-theme') || 'dark');
+</script>
+</body>
+</html>

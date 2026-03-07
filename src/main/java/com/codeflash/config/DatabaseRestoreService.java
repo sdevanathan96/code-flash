@@ -25,6 +25,9 @@ public class DatabaseRestoreService implements ApplicationRunner {
 
   private final ProblemRepository problemRepository;
 
+  @Value("${backup.pg-restore-path:/usr/bin/psql}")
+  private String pgRestorePath;
+
   @Value("${backup.directory:${user.home}/codeflash-backups}")
   private String backupDirectory;
 
@@ -73,7 +76,7 @@ public class DatabaseRestoreService implements ApplicationRunner {
   }
   private void restoreFromFile(Path backupFile) throws IOException, InterruptedException {
     ProcessBuilder pb = new ProcessBuilder(
-       "psql", "-U", dbUser, "-d", dbName, "-f", backupFile.toString()
+        pgRestorePath, "-U", dbUser, "-d", dbName, "-f", backupFile.toString()
     );
     pb.redirectError(ProcessBuilder.Redirect.INHERIT);
 

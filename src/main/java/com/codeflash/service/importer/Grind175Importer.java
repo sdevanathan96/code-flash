@@ -30,9 +30,9 @@ public class Grind175Importer extends ProblemImporter implements ApplicationRunn
   @Value("classpath:seed/grind175.json")
   private Resource grindResource;
 
-  private record Grind150Json(List<Grind150Problem> data) {}
+  private record Grind175Json(List<Grind175Problem> data) {}
 
-  private record Grind150Problem(
+  private record Grind175Problem(
       String slug,
       String title,
       String difficulty,
@@ -54,24 +54,24 @@ public class Grind175Importer extends ProblemImporter implements ApplicationRunn
     try {
       long count = problemRepository.count();
       if (count > 0) {
-        log.info("DB already seeded ({} problems). Skipping Grind 150 import.", count);
+        log.info("DB already seeded ({} problems). Skipping Grind 175 import.", count);
         return;
       }
       ImportResult result = importProblems();
-      log.info("Grind 150 seed complete: {} imported, {} skipped, {} failed",
+      log.info("Grind 175 seed complete: {} imported, {} skipped, {} failed",
           result.imported(), result.skipped(), result.failed());
       if (result.hasFailures()) {
         log.warn("Failed slugs: {}", result.failedSlugs());
       }
     } catch (Exception e) {
-      log.error("Grind 150 seed failed — app will start without seed data", e);
+      log.error("Grind 175 seed failed — app will start without seed data", e);
     }
   }
 
   @Override
   protected List<RawProblemData> fetchRawData() {
     try (InputStream is = grindResource.getInputStream()) {
-      Grind150Json wrapper = objectMapper.readValue(is, Grind150Json.class);
+      Grind175Json wrapper = objectMapper.readValue(is, Grind175Json.class);
       return wrapper.data().stream()
           .filter(p -> !p.tags().isEmpty())
           .map(p -> new RawProblemData(
@@ -83,11 +83,11 @@ public class Grind175Importer extends ProblemImporter implements ApplicationRunn
           ))
           .toList();
     } catch (IOException e) {
-      throw new RuntimeException("Failed to read classpath resource: grind150.json", e);
+      throw new RuntimeException("Failed to read classpath resource: grind175.json", e);
     }
   }
   @Override
-  protected String getListName() { return "Grind 150"; }
+  protected String getListName() { return "Grind 175"; }
 
   @Override
   protected ListSource getListSource() { return ListSource.BUNDLED; }

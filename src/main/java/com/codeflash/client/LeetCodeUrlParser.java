@@ -5,17 +5,19 @@ import static com.codeflash.service.importer.ImportSource.LEETCODE_STUDY_PLAN;
 import static com.codeflash.service.importer.ImportSource.MANUAL;
 
 import com.codeflash.service.importer.ImportSource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Component
 public class LeetCodeUrlParser {
 
   private static final Pattern LIST_PATTERN =
-     Pattern.compile("leetcode\\.com/list/(?<hash>[a-zA-Z0-9]+)");
+      Pattern.compile("leetcode\\.com/(?:problem-list|list)/(?<hash>[a-zA-Z0-9]+)");
 
   private static final Pattern STUDY_PLAN_PATTERN =
      Pattern.compile("leetcode\\.com/studyplan/(?<slug>[a-zA-Z0-9-]+)");
@@ -25,18 +27,21 @@ public class LeetCodeUrlParser {
 
 
   public Optional<String> extractListHash(String url) {
+    log.debug("Trying to extract list hash from: '{}'", url);
     Matcher matcher = LIST_PATTERN.matcher(url);
-    return matcher.find() ? Optional.of(matcher.group("hash")) : Optional.empty();
+    boolean found = matcher.find();
+    log.debug("Pattern match result: {}", found);
+    return found ? Optional.of(matcher.group("hash")) : Optional.empty();
   }
 
   public Optional<String> extractStudyPlanSlug(String url) {
     Matcher matcher = STUDY_PLAN_PATTERN.matcher(url);
-    return matcher.find() ? Optional.of(matcher.group("hash")) : Optional.empty();
+    return matcher.find() ? Optional.of(matcher.group("slug")) : Optional.empty();
   }
 
   public Optional<String> extractProblemSlug(String url){
     Matcher matcher = PROBLEM_PATTERN.matcher(url);
-    return matcher.find() ? Optional.of(matcher.group("hash")) : Optional.empty();
+    return matcher.find() ? Optional.of(matcher.group("slug")) : Optional.empty();
   }
 
   public Optional<ImportSource> detectUrlType(String url) {

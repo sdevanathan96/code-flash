@@ -28,27 +28,30 @@ public abstract class ProblemImporter {
   protected final ProblemPersistenceHelper persistenceHelper;
 
 
-  public final ImportResult importProblems(){
+  public final ImportResult importProblems() {
     List<RawProblemData> rawList = fetchRawData();
     log.info("Fetched {} raw problems for list '{}'", rawList.size(), getListName());
     ProblemListEntity list = resolveList();
     int imported = 0, skipped = 0, failed = 0;
     List<String> failedSlugs = new ArrayList<>();
-    for (RawProblemData raw : rawList) {
-        try {
-            if (problemRepository.existsBySlug(raw.slug())) {
-              persistenceHelper.linkToListIfAbsent(raw.slug(), list);
-              skipped++;
-            } else {
-                persistenceHelper.saveOneProblem(raw, list);
-                imported++;
-            }
-        } catch (Exception e) {
-            log.error("Failed to import slug '{}': {}", raw.slug(), e.getMessage());
-            failedSlugs.add(raw.slug());
-            failed++;
+
+    for (int position = 0; position < rawList.size(); position++) {
+      RawProblemData raw = rawList.get(position);
+      try {
+        if (problemRepository.existsBySlug(raw.slug())) {
+          persistenceHelper.linkToListIfAbsent(raw.slug(), list, position);
+          skipped++;
+        } else {
+          persistenceHelper.saveOneProblem(raw, list, position);
+          imported++;
         }
+      } catch (Exception e) {
+        log.error("Failed to import slug '{}': {}", raw.slug(), e.getMessage());
+        failedSlugs.add(raw.slug());
+        failed++;
+      }
     }
+
     return ImportResult.builder()
         .imported(imported)
         .skipped(skipped)
@@ -64,13 +67,13 @@ public abstract class ProblemImporter {
 
   protected abstract ListSource getListSource();
 
-  private Set<TagEntity> resolveTags(List<String> tagNames){
-  return tagNames.stream()
-      .map(name -> tagRepository.findByNameIgnoreCase(name)
-         .orElseGet(() -> tagRepository.save(
-             TagEntity.builder().name(name).build()
-         )))
-     .collect(Collectors.toSet());
+  private Set<TagEntity> resolveTags(List<String> tagNames) {
+    return tagNames.stream()
+        .map(name -> tagRepository.findByNameIgnoreCase(name)
+            .orElseGet(() -> tagRepository.save(
+                TagEntity.builder().name(name).tagType("TOPIC").build()
+            )))
+        .collect(Collectors.toSet());
   }
   protected ProblemListEntity resolveList(){
     return problemListRepository.findByName(getListName())

@@ -12,6 +12,7 @@ public record ProblemResponse(
    Difficulty difficulty,
    String url,
    Set<String> tags,
+   Set<String> companyTags,
    Set<String> lists,
 
    int intervalDays,

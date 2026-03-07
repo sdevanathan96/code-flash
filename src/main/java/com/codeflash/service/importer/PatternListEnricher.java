@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,7 @@ public class PatternListEnricher implements ApplicationRunner {
   private final LeetCodeConfig config;
   private final AppSettingsRepository settingsRepository;
   private final EnrichmentConfig enrichmentConfig;
+  private final AtomicBoolean running = new AtomicBoolean(false);
 
   @Override
   public void run(ApplicationArguments args) {
@@ -43,7 +45,15 @@ public class PatternListEnricher implements ApplicationRunner {
 
   @Scheduled(fixedDelay = 6 * 60 * 60 * 1000)
   public void scheduledEnrichment() {
-    runEnrichmentIfDue();
+    if (!running.compareAndSet(false, true)) {
+      log.info("Enrichment already in progress, skipping.");
+      return;
+    }
+    try {
+      runEnrichmentIfDue();
+    } finally {
+      running.set(false);
+    }
   }
 
   private void runEnrichmentIfDue() {

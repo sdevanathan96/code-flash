@@ -3,14 +3,17 @@ package com.codeflash.controller.rest;
 
 import com.codeflash.dto.response.ListResponse;
 import com.codeflash.dto.response.ListTopicBreakdownResponse;
+import com.codeflash.dto.response.RenameRequest;
 import com.codeflash.entity.ProblemEntity;
 import com.codeflash.entity.SRSStateEntity;
 import com.codeflash.entity.TagEntity;
 import com.codeflash.repository.ProblemListRepository;
 import com.codeflash.repository.ProblemRepository;
 import com.codeflash.repository.SRSStateRepository;
+import jakarta.validation.Valid;
 import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +30,21 @@ public class ListController {
   private final ProblemListRepository problemListRepository;
   private final ProblemRepository problemRepository;
   private final SRSStateRepository srsStateRepository;
+
+  @PatchMapping("/{id}/rename")
+  public ResponseEntity<Void> renameList(
+      @PathVariable Long id,
+      @RequestBody @Valid RenameRequest request) {
+
+    if (problemListRepository.existsByName(request.name())) {
+      return ResponseEntity.status(HttpStatus.CONFLICT).build();
+    }
+    problemListRepository.findById(id).ifPresent(l -> {
+      l.setName(request.name());
+      problemListRepository.save(l);
+    });
+    return ResponseEntity.ok().build();
+  }
 
   @GetMapping
   public ResponseEntity<List<ListResponse>> getLists() {
@@ -49,7 +67,9 @@ public class ListController {
     List<ProblemEntity> problems = problemRepository.findByListName(list.getName());
 
     List<String> tagNames = problems.stream()
-        .flatMap(p -> p.getTags().stream().map(TagEntity::getName))
+        .flatMap(p -> p.getTags().stream()
+            .filter(t -> "TOPIC".equals(t.getTagType()))
+            .map(TagEntity::getName))
         .distinct().toList();
 
     List<Long> problemIds = problems.stream().map(ProblemEntity::getId).toList();

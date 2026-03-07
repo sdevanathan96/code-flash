@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html th:replace="layout/base :: layout(~{::content})">
+<th:block th:fragment="content">
+
+  <!-- ── Filter bar ── -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="get" action="/problems" class="row g-2 align-items-end">
+
+        <!-- List filter -->
+        <div class="col-12 col-md-3">
+          <label class="form-label small text-muted">List</label>
+          <select name="list" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All Lists</option>
+            <option th:each="l : ${lists}"
+                    th:value="${l.name}"
+                    th:text="${l.name} + ' (' + ${l.problemCount} + ')'"
+                    th:selected="${l.name == selectedList}">
+            </option>
+          </select>
+        </div>
+
+        <!-- Tag filter -->
+        <div class="col-12 col-md-3">
+          <label class="form-label small text-muted">Topic</label>
+          <select name="tag" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All Topics</option>
+            <option th:each="t : ${tags}"
+                    th:value="${t.name}"
+                    th:text="${t.name} + ' (' + ${t.problemCount} + ')'"
+                    th:selected="${t.name == selectedTag}">
+            </option>
+          </select>
+        </div>
+
+        <div class="col-12 col-md-3">
+          <label class="form-label small text-muted">Company</label>
+          <input type="text" name="company" class="form-control form-control-sm"
+                 placeholder="e.g. Google"
+                 th:value="${selectedCompany}"/>
+        </div>
+
+        <!-- Difficulty filter -->
+        <div class="col-12 col-md-2">
+          <label class="form-label small text-muted">Difficulty</label>
+          <select name="difficulty" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All</option>
+            <option value="EASY"   th:selected="${selectedDiff == 'EASY'}">Easy</option>
+            <option value="MEDIUM" th:selected="${selectedDiff == 'MEDIUM'}">Medium</option>
+            <option value="HARD"   th:selected="${selectedDiff == 'HARD'}">Hard</option>
+          </select>
+        </div>
+
+        <!-- Due only toggle -->
+        <div class="col-12 col-md-2 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="dueOnly"
+                   value="true" id="dueOnly"
+                   th:checked="${dueOnly}"
+                   onchange="this.form.submit()"/>
+            <label class="form-check-label small" for="dueOnly">Due only</label>
+          </div>
+        </div>
+
+        <!-- Clear filters -->
+        <div class="col-12 col-md-2">
+          <a href="/problems" class="btn btn-sm btn-outline-secondary w-100">
+            <i class="bi bi-x-circle"></i> Clear
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Topic breakdown (shown when a list is selected) ── -->
+
+  <div class="card mb-3" th:if="${topicBreakdown != null and !topicBreakdown.empty}">
+    <div class="card-header">
+      <i class="bi bi-pie-chart"></i>
+      Topics in <strong th:text="${selectedList}">List</strong>
+    </div>
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-6 col-md-4 col-lg-3"
+             th:each="t : ${topicBreakdown}">
+
+          <a th:href="@{/problems(list=${selectedList},tag=${t.tagName})}"
+             class="text-decoration-none">
+            <div class="card h-100 border-0 bg-primary bg-opacity-10"
+                 th:classappend="${t.tagName == selectedTag} ? 'border border-primary bg-primary bg-opacity-25' : 'bg-primary bg-opacity-10'">
+              <div class="card-body py-2 px-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <small class="fw-medium" th:text="${t.tagName}">Tag</small>
+                  <small class="text-danger fw-bold"
+                         th:if="${t.dueProblems > 0}"
+                         th:text="${t.dueProblems} + ' due'">0 due</small>
+                </div>
+                <div class="mastery-bar mt-1">
+                  <div class="mastery-fill"
+                       th:style="'width:' + ${#numbers.formatDecimal(t.masteryScore * 100, 1, 0)} + '%'">
+                  </div>
+                </div>
+                <small class="text-muted"
+                       th:text="${#numbers.formatDecimal(t.masteryScore * 100, 1, 0)} + '% · ' + ${t.totalProblems} + ' problems'">
+                </small>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Problems table ── -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>
+        <i class="bi bi-list-check"></i>
+        <span th:text="${problems.size()} + ' problems'">0 problems</span>
+      </span>
+      <a th:href="@{/review(list=${selectedList},tag=${selectedTag})}"
+         class="btn btn-sm btn-primary">
+        <i class="bi bi-play-fill"></i> Review these
+      </a>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-group-divider">
+        <tr>
+          <th class="ps-3" style="width:40px">#</th>
+          <th>Problem</th>
+          <th>Difficulty</th>
+          <th>Topics</th>
+          <th>Companies</th>
+          <th>Due</th>
+          <th>Solves</th>
+          <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="p, stat : ${problems}"
+            th:classappend="${p.isDueToday} ? 'table-active' : ''">
+
+          <!-- Row number -->
+          <td class="ps-3 text-muted small" th:text="${stat.count}">1</td>
+
+          <!-- Problem title + link -->
+          <td>
+            <a th:href="${p.url}" target="_blank"
+               class="text-decoration-none fw-medium"
+               th:text="${p.title}">
+              Problem Title
+            </a>
+          </td>
+
+          <!-- Difficulty badge -->
+          <td>
+              <span class="badge rounded-pill"
+                    th:classappend="${p.difficulty.name() == 'EASY'} ? 'badge-easy' :
+                                    (${p.difficulty.name() == 'MEDIUM'} ? 'badge-medium' : 'badge-hard')"
+                    th:text="${p.difficulty}">
+                EASY
+              </span>
+          </td>
+
+          <!-- Tags -->
+          <td>
+            <div class="d-flex flex-wrap gap-1">
+              <span class="badge bg-secondary rounded-pill"
+                    th:each="tag : ${p.tags}"
+                    th:text="${tag}">Tag</span>
+            </div>
+          </td>
+
+          <td>
+            <!-- Show top 3 companies, +N more if there are more -->
+            <div class="d-flex flex-wrap gap-1">
+              <span class="badge rounded-pill"
+                    style="background-color: #6f42c1; color: white;"
+                    th:each="company, stat : ${p.companyTags}"
+                    th:if="${stat.index < 3}"
+                    th:text="${company}">Company</span>
+                        <span class="badge bg-secondary rounded-pill"
+                              th:if="${p.companyTags.size() > 3}"
+                              th:text="'+' + (${p.companyTags.size()} - 3) + ' more'">
+              </span>
+            </div>
+          </td>
+
+          <!-- Due label -->
+          <td>
+              <span th:text="${p.dueLabel}"
+                    th:classappend="${p.dueLabel == 'Today' or p.dueLabel == 'Overdue'} ? 'due-today' :
+                                    (${p.dueLabel == 'Tomorrow'} ? 'due-tomorrow' : 'due-future')">
+                Today
+              </span>
+          </td>
+
+          <!-- Solve count -->
+          <td class="text-muted small" th:text="${p.totalSolves}">0</td>
+
+          <!-- Detail link -->
+          <td>
+            <a th:href="@{/problems/{id}(id=${p.id})}"
+               class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-clock-history"></i>
+            </a>
+          </td>
+
+        </tr>
+
+        <!-- Empty state -->
+        <tr th:if="${problems.empty}">
+          <td colspan="8" class="text-center text-muted py-4">
+            <i class="bi bi-check-circle display-6"></i>
+            <p class="mt-2 mb-0">No problems match your filters</p>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</th:block>
+</html>

@@ -43,5 +43,7 @@ backup:
   db-name: codeflash
   db-user: postgres
   retention-days: 30
+  pg-dump-path: /opt/homebrew/opt/postgresql@16/bin/pg_dump
+  pg-restore-path: /opt/homebrew/opt/postgresql@16/bin/psql
   restore:
-    enabled: false  # Set true only when you want auto-restore on startup
+    enabled: false

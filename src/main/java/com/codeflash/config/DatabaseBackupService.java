@@ -19,6 +19,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DatabaseBackupService {
 
+  @Value("${backup.pg-dump-path:/usr/bin/pg_dump}")
+  private String pgDumpPath;
+
   @Value("${backup.directory:${user.home}/codeflash-backups}")
   private String backupDirectory;
 
@@ -48,7 +51,9 @@ public class DatabaseBackupService {
   public void backupOnShutdown() {
     try {
       String filename = backupDirectory + "/backup_" + LocalDate.now() + ".sql";
-      ProcessBuilder pb = new ProcessBuilder("pg_dump", "-U", dbUser, dbName);
+      ProcessBuilder pb = new ProcessBuilder(
+          pgDumpPath, "-U", dbUser, dbName
+      );
       pb.redirectOutput(new File(filename));
       pb.redirectError(ProcessBuilder.Redirect.INHERIT);
       int exitCode = pb.start().waitFor();

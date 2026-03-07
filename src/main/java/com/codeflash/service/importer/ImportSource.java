@@ -1,8 +1,8 @@
 package com.codeflash.service.importer;
 
 public enum ImportSource {
-  GRIND_150,
-  LEETCODE_LIST,   // user pastes a custom list URL
+  GRIND_175,
+  LEETCODE_LIST,
   LEETCODE_STUDY_PLAN,
-  MANUAL           // user pastes a single problem slug
+  MANUAL
 }

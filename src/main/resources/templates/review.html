@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html th:replace="layout/base :: layout(~{::content})">
+<th:block th:fragment="content">
+
+  <!-- ── Mode selector (shown when no mode chosen yet) ── -->
+  <div th:if="${mode == null}" class="row justify-content-center">
+    <div class="col-12 col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <i class="bi bi-play-circle"></i> Start a review session
+        </div>
+        <div class="card-body">
+
+          <!-- List picker -->
+          <div class="mb-3">
+            <label class="form-label small text-muted">List (optional)</label>
+            <select id="listSelect" class="form-select form-select-sm">
+              <option value="">All problems</option>
+              <option th:each="l : ${lists}"
+                      th:value="${l.name}"
+                      th:text="${l.name}"
+                      th:selected="${l.name == selectedList}">
+              </option>
+            </select>
+          </div>
+
+          <!-- Mode buttons -->
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-danger text-start px-3 py-2"
+                    onclick="startReview('DUE_ONLY')">
+              <div class="fw-bold">Due Only</div>
+              <small class="text-muted">Review problems scheduled for today</small>
+            </button>
+            <button class="btn btn-outline-primary text-start px-3 py-2"
+                    onclick="startReview('SEQUENTIAL')">
+              <div class="fw-bold">Sequential</div>
+              <small class="text-muted">Work through the list in order</small>
+            </button>
+            <button class="btn btn-outline-success text-start px-3 py-2"
+                    onclick="startReview('MIXED')">
+              <div class="fw-bold">Mixed</div>
+              <small class="text-muted">Sequential with due problems interspersed</small>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function startReview(mode) {
+      const list = document.getElementById('listSelect').value;
+      const params = new URLSearchParams({ mode });
+      if (list) params.append('list', list);
+      window.location.href = '/review?' + params.toString();
+    }
+  </script>
+
+  <!-- ── No problems in queue ── -->
+  <div th:if="${mode != null and problem == null}" class="text-center py-5">
+    <i class="bi bi-check-circle-fill display-1 text-success"></i>
+    <h3 class="mt-3">All caught up!</h3>
+    <p class="text-muted">No problems due right now. Come back later or practice randomly.</p>
+    <div class="d-flex gap-2 justify-content-center">
+      <a href="/" class="btn btn-outline-secondary">Dashboard</a>
+      <a href="/problems/random" class="btn btn-primary">
+        <i class="bi bi-shuffle"></i> Random Problem
+      </a>
+    </div>
+  </div>
+
+  <!-- ── Review session ── -->
+  <div th:if="${mode != null and problem != null}">
+
+    <!-- Progress bar + mode badge -->
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <span class="badge"
+            th:classappend="${mode.name() == 'DUE_ONLY'} ? 'bg-danger' :
+                            (${mode.name() == 'SEQUENTIAL'} ? 'bg-primary' : 'bg-success')"
+            th:text="${mode}">MODE</span>
+      <div class="flex-grow-1">
+        <div class="progress" style="height: 6px;">
+          <div class="progress-bar bg-primary" role="progressbar"
+               th:style="'width:' + ${progress} + '%'">
+          </div>
+        </div>
+      </div>
+      <small class="text-muted text-nowrap"
+             th:text="${remaining} + ' remaining'">0 remaining</small>
+    </div>
+
+    <div class="row g-4">
+
+      <!-- ── Problem card (left/main) ── -->
+      <div class="col-12 col-lg-8">
+        <div class="card">
+          <div class="card-header d-flex align-items-center justify-content-between">
+
+            <!-- Difficulty badge -->
+            <span class="badge"
+                  th:classappend="${problem.difficulty.name() == 'EASY'} ? 'badge-easy' :
+                                  (${problem.difficulty.name() == 'MEDIUM'} ? 'badge-medium' : 'badge-hard')"
+                  th:text="${problem.difficulty}">EASY</span>
+
+            <!-- Tags -->
+            <div class="d-flex flex-wrap gap-1">
+              <span class="badge bg-secondary rounded-pill"
+                    th:each="tag : ${problem.tags}"
+                    th:text="${tag}">Tag</span>
+            </div>
+
+            <!-- SRS info -->
+            <small class="text-muted">
+              Interval: <strong th:text="${problem.intervalDays} + 'd'">1d</strong>
+              · Solves: <strong th:text="${problem.totalSolves}">0</strong>
+            </small>
+          </div>
+
+          <div class="card-body">
+            <h4 class="card-title mb-3" th:text="${problem.title}">Problem Title</h4>
+
+            <a th:href="${problem.url}" target="_blank"
+               class="btn btn-outline-primary btn-lg w-100 mb-4">
+              <i class="bi bi-box-arrow-up-right"></i>
+              Open on LeetCode — solve it, then come back to rate
+            </a>
+
+            <!-- Past notes (shown collapsed) -->
+            <div th:if="${!history.empty}">
+              <button class="btn btn-sm btn-outline-secondary mb-2"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#pastNotes">
+                <i class="bi bi-journal-text"></i>
+                Show past notes (<span th:text="${history.size()}">0</span> solves)
+              </button>
+
+              <div class="collapse" id="pastNotes">
+                <div class="card card-body bg-opacity-10 mb-3">
+                  <div th:each="h, stat : ${history}"
+                       th:if="${stat.index < 3}">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                      <small class="text-muted"
+                             th:text="${#temporals.format(h.solvedAt, 'MMM d yyyy')}">
+                        Jan 1 2025
+                      </small>
+                      <span class="badge rounded-pill"
+                            th:classappend="${h.confidence.name() == 'EASY'} ? 'badge-easy' :
+                                            (${h.confidence.name() == 'GOOD'} ? 'bg-primary' :
+                                            (${h.confidence.name() == 'HARD'} ? 'bg-warning text-dark' : 'bg-danger'))"
+                            th:text="${h.confidence}">GOOD</span>
+                    </div>
+                    <p class="small mb-2"
+                       th:if="${!#strings.isEmpty(h.notes)}"
+                       th:text="${h.notes}">Notes here</p>
+                    <hr class="my-2" th:if="${!stat.last}"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes textarea -->
+            <div class="mb-3">
+              <label class="form-label small text-muted">
+                Notes for this solve (approach, insight, gotcha)
+              </label>
+              <textarea id="notesInput" class="form-control" rows="3"
+                        placeholder="e.g. Used sliding window — maintain a set of chars, shrink left when duplicate found...">
+              </textarea>
+            </div>
+
+            <!-- ── Confidence buttons ── -->
+            <div class="d-grid gap-2">
+              <div class="row g-2">
+                <div class="col-3">
+                  <button class="btn btn-again w-100 py-2"
+                          onclick="submitRating('AGAIN')">
+                    <div class="fw-bold">Again</div>
+                    <small>Forgot completely</small>
+                  </button>
+                </div>
+                <div class="col-3">
+                  <button class="btn btn-hard w-100 py-2"
+                          onclick="submitRating('HARD')">
+                    <div class="fw-bold">Hard</div>
+                    <small>Struggled</small>
+                  </button>
+                </div>
+                <div class="col-3">
+                  <button class="btn btn-good w-100 py-2"
+                          onclick="submitRating('GOOD')">
+                    <div class="fw-bold">Good</div>
+                    <small>Got it</small>
+                  </button>
+                </div>
+                <div class="col-3">
+                  <button class="btn btn-easy w-100 py-2"
+                          onclick="submitRating('EASY')">
+                    <div class="fw-bold">Easy</div>
+                    <small>Too easy</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Queue sidebar (right) ── -->
+      <div class="col-12 col-lg-4">
+        <div class="card">
+          <div class="card-header small text-muted d-flex justify-content-between align-items-center">
+            <span>Up next</span>
+            <!-- Skip button — advances without recording a solve -->
+            <a th:href="${nextUrl}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-skip-forward"></i> Skip
+            </a>
+          </div>
+          <div class="list-group list-group-flush">
+            <div class="list-group-item py-2 px-3"
+                 th:each="p, stat : ${upNext}"
+                 th:if="${stat.index < 5}">
+              <div class="d-flex justify-content-between align-items-center">
+                <small th:text="${p.title}" class="text-truncate">Title</small>
+                <span class="badge ms-2 flex-shrink-0"
+                      th:classappend="${p.difficulty.name() == 'EASY'} ? 'badge-easy' :
+                                      (${p.difficulty.name() == 'MEDIUM'} ? 'badge-medium' : 'badge-hard')"
+                      th:text="${p.difficulty}">
+                </span>
+              </div>
+            </div>
+            <div class="list-group-item text-muted small text-center py-2"
+                 th:if="${upNext.empty}">
+              No more problems in queue
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const problemId = /*[[${problem?.id}]]*/ null;
+    const nextUrl   = /*[[${nextUrl}]]*/ '/review';
+
+    async function submitRating(confidence) {
+      const notes = document.getElementById('notesInput').value.trim();
+
+      document.querySelectorAll('button[onclick]')
+      .forEach(b => b.disabled = true);
+
+      try {
+        const resp = await fetch(`/api/problems/${problemId}/solve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confidence, notes })
+        });
+
+        if (resp.ok) {
+          window.location.href = nextUrl;
+        } else {
+          alert('Failed to record solve. Please try again.');
+          document.querySelectorAll('button[onclick]')
+          .forEach(b => b.disabled = false);
+        }
+      } catch (e) {
+        alert('Network error. Please try again.');
+        document.querySelectorAll('button[onclick]')
+        .forEach(b => b.disabled = false);
+      }
+    }
+  </script>
+
+</th:block>
+</html>

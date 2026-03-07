@@ -1,78 +1,14 @@
-// ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-// ┃  FILE 4: service/ProblemService.java                                    ┃
-// ┃  Purpose: Business logic for problem browsing and review queue          ┃
-// ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-//
-// ═══════════════════════════════════════════════════════════════════════════
-//  CONCEPTUAL DEEP DIVE: Weighted random selection
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// getWeightedRandom() surfaces a problem for unstructured practice.
-// Pure random (Collections.shuffle + get(0)) treats all problems equally.
-// Weighted random biases toward problems that need more attention.
-//
-// Weight formula per problem:
-//
-//   weight = (daysSinceLastSolve + 1) * difficultyMultiplier * (1 / avgConfidence)
-//
-//   daysSinceLastSolve:   problems not seen recently rank higher
-//   difficultyMultiplier: HARD=3, MEDIUM=2, EASY=1 (harder problems surface more)
-//   1 / avgConfidence:    low confidence (AGAIN/HARD ratings) = higher weight
-//                         (avoid division by zero: use max(0.5, avgConfidence))
-//
-// Implementation — weighted reservoir sampling:
-//   1. For each problem, compute its weight
-//   2. Generate a random key: Math.pow(random.nextDouble(), 1.0 / weight)
-//   3. Select the problem with the highest key
-//
-// This is O(n) and gives exact weighted probabilities without building
-// a cumulative distribution array.
-//
-// ═══════════════════════════════════════════════════════════════════════════
-//  getDueProblems: scoped vs unscoped
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// When listName is present → findDueProblemsInList (scoped to one list)
-// When listName is absent  → findDueProblems (all due problems)
-//
-// The service handles this via Optional<String>:
-//
-//   public List<ProblemResponse> getDueProblems(Optional<String> listName) {
-//       List<ProblemEntity> entities = listName
-//           .map(problemRepository::findDueProblemsInList)
-//           .orElseGet(problemRepository::findDueProblems);
-//       ...
-//   }
-//
-// The controller extracts the listName from the query param and wraps it
-// in Optional before passing to the service. The service has no knowledge
-// of HTTP — it just receives an Optional<String>.
-//
-// ── THINK ABOUT ───────────────────────────────────────────────────────────
-// Q: getDueProblems loads ProblemEntity but needs SRSStateEntity for the
-//    response. How do we avoid N+1 queries?
-// A: findDueProblems already JOINs srs_states (it filters by nextDueDate).
-//    Add a JOIN FETCH for the SRSState in the same query using @EntityGraph,
-//    OR load SRS states for all due problem IDs in one batch query:
-//
-//      List<Long> ids = entities.stream().map(ProblemEntity::getId).toList();
-//      Map<Long, SRSStateEntity> srsMap = srsStateRepository
-//          .findByProblemIdIn(ids)            ← one query, all states
-//          .stream()
-//          .collect(toMap(SRSStateEntity::getProblemId, identity()));
-//
-//    Then: mapper.toResponse(entity, srsMap.get(entity.getId()))
-//    One batch query. No N+1.
-// ──────────────────────────────────────────────────────────────────────────
-
 package com.codeflash.service;
 
 import com.codeflash.dto.response.ProblemResponse;
+import com.codeflash.dto.response.SolveRecordResponse;
 import com.codeflash.entity.ProblemEntity;
+import com.codeflash.entity.ProblemListEntity;
 import com.codeflash.entity.SRSStateEntity;
 import com.codeflash.exception.ResourceNotFoundException;
 import com.codeflash.repository.ProblemRepository;
 import com.codeflash.repository.SRSStateRepository;
+import com.codeflash.repository.SolveRecordRepository;
 import com.codeflash.repository.TagRepository;
 import com.codeflash.repository.ProblemListRepository;
 import com.codeflash.domain.Difficulty;
@@ -97,6 +33,7 @@ public class ProblemService {
   private final TagRepository tagRepository;
   private final ProblemListRepository problemListRepository;
   private final ProblemMapper mapper;
+  private final SolveRecordRepository solveRecordRepository;
 
   @Transactional(readOnly = true)
   public List<ProblemResponse> getDueProblems(Optional<String> listName) {
@@ -110,6 +47,10 @@ public class ProblemService {
         .collect(Collectors.toMap(SRSStateEntity::getProblemId, Function.identity()));
 
     return entities.stream()
+        .sorted(Comparator.comparing(e ->
+            Optional.ofNullable(srsMap.get(e.getId()))
+                .map(SRSStateEntity::getNextDueDate)
+                .orElse(LocalDate.now())))
         .map(e -> mapper.toResponse(e, srsMap.get(e.getId())))
         .toList();
   }
@@ -119,17 +60,27 @@ public class ProblemService {
       Optional<String> tag, Optional<String> list,
       Optional<Difficulty> difficulty) {
     List<ProblemEntity> all = problemRepository.findAllWithTagsAndLists();
-    return all.stream()
-       .filter(e -> tag.map(t -> e.getTags().stream()
-               .anyMatch(te -> te.getName().equalsIgnoreCase(t)))
-           .orElse(true))
-       .filter(e -> list.map(l -> e.getLists().stream()
-               .anyMatch(le -> le.getName().equalsIgnoreCase(l)))
-           .orElse(true))
-       .filter(e -> difficulty.map(d -> e.getDifficulty() == d)
-           .orElse(true))
-       .map(mapper::toResponse)
-       .toList();
+    log.info("Total problems loaded: {}", all.size());
+
+    List<ProblemEntity> filtered = all.stream()
+        .filter(e -> tag.map(t -> e.getTags().stream()
+                .anyMatch(te -> te.getName().equalsIgnoreCase(t)))
+            .orElse(true))
+        .filter(e -> list.map(l -> e.getLists().stream()
+                .anyMatch(le -> le.getName().equalsIgnoreCase(l)))
+            .orElse(true))
+        .filter(e -> difficulty.map(d -> e.getDifficulty() == d)
+            .orElse(true))
+        .toList();
+
+    List<Long> ids = filtered.stream().map(ProblemEntity::getId).toList();
+    Map<Long, SRSStateEntity> srsMap = srsStateRepository
+        .findByProblemIdIn(ids).stream()
+        .collect(Collectors.toMap(SRSStateEntity::getProblemId, Function.identity()));
+
+    return filtered.stream()
+        .map(e -> mapper.toResponse(e, srsMap.get(e.getId())))
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -161,7 +112,7 @@ public class ProblemService {
         .orElseThrow(() -> new ResourceNotFoundException("Problem with id: " + id));
     SRSStateEntity srs = srsStateRepository.findByProblemId(id)
         .orElse(null);
-    return srs != null ? mapper.toResponse(entity, srs) : mapper.toResponse(entity);
+    return mapper.toResponse(entity, srs);
   }
 
   private double computeWeight(ProblemEntity entity, SRSStateEntity srs) {
@@ -203,5 +154,81 @@ public class ProblemService {
     return entities.stream()
         .map(e -> mapper.toResponse(e, srsMap.get(e.getId())))
         .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<SolveRecordResponse> getSolveHistory(Long problemId) {
+    return solveRecordRepository.findByProblemIdOrderBySolvedAtDesc(problemId)
+        .stream()
+        .map(s -> new SolveRecordResponse(
+            s.getId(), s.getProblemId(), s.getConfidence(), s.getNotes(), s.getSolvedAt() ))
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<ProblemResponse> getSequentialQueue(
+      Optional<String> listName, Optional<String> tagName) {
+
+    List<ProblemEntity> all = problemRepository.findAllWithTagsAndLists();
+
+    Map<Long, Integer> positionMap = listName
+        .map(l -> {
+          List<Long> ordered = problemRepository.findOrderedProblemIdsByListName(l);
+          Map<Long, Integer> pos = new HashMap<>();
+          for (int i = 0; i < ordered.size(); i++) pos.put(ordered.get(i), i);
+          return pos;
+        })
+        .orElse(Map.of());
+
+    List<ProblemEntity> filtered = all.stream()
+        .filter(e -> tagName.map(t -> e.getTags().stream()
+                .anyMatch(te -> te.getName().equalsIgnoreCase(t)))
+            .orElse(true))
+        .filter(e -> listName.map(l -> e.getLists().stream()
+                .anyMatch(le -> le.getName().equalsIgnoreCase(l)))
+            .orElse(true))
+        .sorted(positionMap.isEmpty()
+            ? Comparator.comparing(ProblemEntity::getId)
+            : Comparator.comparing(e -> positionMap.getOrDefault(e.getId(), Integer.MAX_VALUE)))
+        .toList();
+
+    List<Long> ids = filtered.stream().map(ProblemEntity::getId).toList();
+    Map<Long, SRSStateEntity> srsMap = srsStateRepository
+        .findByProblemIdIn(ids).stream()
+        .collect(Collectors.toMap(SRSStateEntity::getProblemId, Function.identity()));
+
+    return filtered.stream()
+        .map(e -> mapper.toResponse(e, srsMap.get(e.getId())))
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<ProblemResponse> getMixedQueue(Optional<String> list, Optional<String> tag) {
+    List<ProblemResponse> sequential = getSequentialQueue(list, tag);
+
+    List<ProblemResponse> duePool = new ArrayList<>(getDueProblems(
+        list, tag)
+        .stream()
+        .filter(p -> p.totalSolves() > 0)
+        .toList());
+
+    if (duePool.isEmpty()) return sequential;
+
+    Collections.shuffle(duePool);
+    Iterator<ProblemResponse> dueIter = duePool.iterator();
+
+    List<ProblemResponse> mixed = new ArrayList<>();
+    Random random = new Random();
+
+    for (ProblemResponse p : sequential) {
+      mixed.add(p);
+      if (dueIter.hasNext() && random.nextDouble() < 0.25) {
+        mixed.add(dueIter.next());
+      }
+    }
+
+    dueIter.forEachRemaining(mixed::add);
+
+    return mixed;
   }
 }

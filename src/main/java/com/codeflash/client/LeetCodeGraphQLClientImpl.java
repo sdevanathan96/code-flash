@@ -36,18 +36,17 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
     """;
 
   private static final String FETCH_LIST_PROBLEMS_QUERY = """
-     query getFavoriteQuestionList($favoriteIdHash: String!) {
-         favoriteQuestionList(favoriteIdHash: $favoriteIdHash) {
-             name
-             questions {
-                 titleSlug
-                 title
-                 difficulty
-                 topicTags { name }
-             }
-         }
-     }
-     """;
+    query getFavoriteQuestionList($favoriteSlug: String!) {
+        favoriteQuestionList(favoriteSlug: $favoriteSlug) {
+            questions {
+                titleSlug
+                title
+                difficulty
+                topicTags { name }
+            }
+        }
+    }
+    """;
 
   private static final String FETCH_USER_LISTS_QUERY = """
      query getFavoritesLists {
@@ -61,18 +60,20 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
      """;
 
   private static final String FETCH_STUDY_PLAN_QUERY = """
-     query getStudyPlan($slug: String!) {
-         studyPlanV2Detail(planSlug: $slug) {
-             name
-             questions {
-                 titleSlug
-                 title
-                 difficulty
-                 topicTags { name }
-             }
-         }
-     }
-     """;
+    query getStudyPlan($slug: String!) {
+        studyPlanV2Detail(planSlug: $slug) {
+            name
+            planSubGroups {
+                questions {
+                    titleSlug
+                    title
+                    difficulty
+                    topicTags { name }
+                }
+            }
+        }
+    }
+    """;
 
   public LeetCodeGraphQLClientImpl(LeetCodeConfig config, ObjectMapper objectMapper){
     this.objectMapper = objectMapper;
@@ -83,8 +84,8 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
         .defaultHeader("Referer", "https://leetcode.com")
         .defaultHeader("Cookie",
             "LEETCODE_SESSION=" + config.getSessionCookie() +
-                "; csrftoken=" + config.getCsrfToken())  // ← add csrftoken
-        .defaultHeader("x-csrftoken", config.getCsrfToken())  // ← also needed
+                "; csrftoken=" + config.getCsrfToken())
+        .defaultHeader("x-csrftoken", config.getCsrfToken())
         .build();
   }
 
@@ -114,7 +115,7 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
   public List<RawProblemData> fetchListProblems(String favoriteIdHash) {
     Map<String, Object> body = Map.of(
         "query",     FETCH_LIST_PROBLEMS_QUERY,
-        "variables", Map.of("favoriteIdHash", favoriteIdHash)
+        "variables", Map.of("favoriteSlug", favoriteIdHash)
     );
     try {
       String json = executeQuery(body);
@@ -165,9 +166,14 @@ public class LeetCodeGraphQLClientImpl implements LeetCodeGraphQLClient {
       GraphQLResponse<StudyPlanData> response = objectMapper.readValue(
           json, new TypeReference<>() {}
       );
-      List<QuestionDetail> questions = response.data().studyPlanV2Detail().questions();
-      if (questions == null) return List.of();
-      return questions.stream().map(this::toRawProblemData).toList();
+      StudyPlanDetail plan = response.data().studyPlanV2Detail();
+      if (plan == null || plan.planSubGroups() == null) return List.of();
+
+      return plan.planSubGroups().stream()
+          .filter(g -> g.questions() != null)
+          .flatMap(g -> g.questions().stream())
+          .map(this::toRawProblemData)
+          .toList();
     } catch (WebClientResponseException.Forbidden w) {
       log.error("Session cookie expired or missing.");
       return List.of();

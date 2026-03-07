@@ -26,7 +26,6 @@ public interface SolveRecordRepository extends JpaRepository<SolveRecordEntity, 
       @Param("since") LocalDateTime since
   );
 
-  // Heatmap data for stats page:
   @Query(value = """
     SELECT DATE(solved_at) as solve_date, COUNT(*) as solve_count
     FROM solve_records

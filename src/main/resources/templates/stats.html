@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html th:replace="layout/base :: layout(~{::content})" th:fragment="stats-page">
+<th:block th:fragment="content">
+
+  <div class="row g-4">
+
+    <!-- Summary cards -->
+    <div class="col-6 col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <div class="display-5 fw-bold text-danger"
+               th:text="${summary.dueToday}">0</div>
+          <div class="text-muted small">Due Today</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <div class="display-5 fw-bold text-warning"
+               th:text="${summary.currentStreak}">0</div>
+          <div class="text-muted small">Streak 🔥</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <div class="display-5 fw-bold text-info"
+               th:text="${summary.totalSolves}">0</div>
+          <div class="text-muted small">Total Solves</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <div class="display-5 fw-bold text-success"
+               th:text="${summary.totalProblems}">0</div>
+          <div class="text-muted small">Problems</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pattern mastery table -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <i class="bi bi-bar-chart-fill"></i> Pattern Mastery
+          <small class="text-muted ms-2">Sorted by weakest first</small>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+            <tr>
+              <th class="ps-3">Topic</th>
+              <th>Mastery</th>
+              <th>Solved</th>
+              <th>Avg Rating</th>
+              <th>Retention</th>
+              <th>Trend</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${patterns}">
+
+              <!-- Topic name — clicking filters problem list -->
+              <td class="ps-3">
+                <a th:href="@{/problems(tag=${p.tagName})}"
+                   class="text-decoration-none fw-medium"
+                   th:text="${p.tagName}">Tag</a>
+              </td>
+
+              <!-- Mastery bar -->
+              <td style="width: 200px;">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="mastery-bar flex-grow-1">
+                    <div class="mastery-fill"
+                         th:style="'width:' + ${#numbers.formatDecimal(p.masteryScore * 100, 1, 0)} + '%'">
+                    </div>
+                  </div>
+                  <small class="text-muted text-nowrap"
+                         th:text="${#numbers.formatDecimal(p.masteryScore * 100, 1, 0)} + '%'">
+                  </small>
+                </div>
+              </td>
+
+              <!-- Solved / total -->
+              <td>
+                <span th:text="${p.solvedProblems}">0</span>
+                <span class="text-muted">/ <span th:text="${p.totalProblems}">0</span></span>
+              </td>
+
+              <!-- Avg confidence (rendered as stars) -->
+              <td>
+                <span th:text="${#numbers.formatDecimal(p.averageConfidence, 1, 1)}">0.0</span>
+                <small class="text-muted">/ 3.0</small>
+              </td>
+
+              <!-- Retention rate badge -->
+              <td>
+                  <span class="badge rounded-pill"
+                        th:classappend="${p.retentionRate >= 0.7} ? 'bg-success' :
+                                        (${p.retentionRate >= 0.4} ? 'bg-warning text-dark' : 'bg-danger')"
+                        th:text="${#numbers.formatDecimal(p.retentionRate * 100, 1, 0)} + '%'">
+                    0%
+                  </span>
+              </td>
+
+              <!-- Trend direction -->
+              <td>
+                  <span th:switch="${p.trendDirection}">
+                    <span th:case="'improving'" class="trend-improving">
+                      <i class="bi bi-arrow-up-circle-fill"></i> Improving
+                    </span>
+                    <span th:case="'declining'" class="trend-declining">
+                      <i class="bi bi-arrow-down-circle-fill"></i> Declining
+                    </span>
+                    <span th:case="'stable'" class="trend-stable">
+                      <i class="bi bi-dash-circle"></i> Stable
+                    </span>
+                    <span th:case="'new'" class="trend-new">
+                      <i class="bi bi-star-fill"></i> New
+                    </span>
+                  </span>
+              </td>
+            </tr>
+
+            <tr th:if="${patterns.empty}">
+              <td colspan="6" class="text-center text-muted py-4">
+                Solve some problems to see pattern stats
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</th:block>
+</html>

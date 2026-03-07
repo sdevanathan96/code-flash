@@ -4,9 +4,12 @@ import com.codeflash.domain.Problem;
 import com.codeflash.dto.response.ProblemResponse;
 import com.codeflash.dto.response.SolveRecordResponse;
 import com.codeflash.entity.ProblemEntity;
+import com.codeflash.entity.ProblemListEntity;
 import com.codeflash.entity.SRSStateEntity;
 import com.codeflash.entity.SolveRecordEntity;
+import com.codeflash.entity.TagEntity;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -30,28 +33,32 @@ public class ProblemMapper {
   }
 
   public ProblemResponse toResponse(ProblemEntity entity, SRSStateEntity srs) {
-    LocalDate due = srs.getNextDueDate();
+    LocalDate due = (srs != null && srs.getNextDueDate() != null)
+        ? srs.getNextDueDate()
+        : null;
+
     return new ProblemResponse(
         entity.getId(), entity.getSlug(), entity.getTitle(),
         entity.getDifficulty(),
         entity.getUrl() != null ? entity.getUrl()
             : "https://leetcode.com/problems/" + entity.getSlug() + "/",
-        entity.getTags().stream().map(t -> t.getName()).collect(Collectors.toSet()),
-        entity.getLists().stream().map(l -> l.getName()).collect(Collectors.toSet()),
-        srs.getIntervalDays(), srs.getEaseFactor(), due,
-        srs.getTotalSolves(),
-        !due.isAfter(LocalDate.now()),
+        entity.getTags().stream()
+            .filter(t -> "TOPIC".equals(t.getTagType()))
+            .map(TagEntity::getName)
+            .collect(Collectors.toSet()),
+        entity.getTags().stream()
+            .filter(t -> "COMPANY".equals(t.getTagType()))
+            .map(TagEntity::getName)
+            .collect(Collectors.toSet()),
+        entity.getLists().stream()
+            .map(ProblemListEntity::getName)
+            .collect(Collectors.toSet()),
+        srs != null ? srs.getIntervalDays() : 0,
+        srs != null ? srs.getEaseFactor() : 2.5,
+        due,
+        srs != null ? srs.getTotalSolves() : 0,
+        due != null && !due.isAfter(LocalDate.now()),
         deriveDueLabel(due)
-    );
-  }
-
-  public ProblemResponse toResponse(ProblemEntity entity){
-    return new ProblemResponse(
-       entity.getId(), entity.getSlug(), entity.getTitle(),
-       entity.getDifficulty(), entity.getUrl(),
-       entity.getTags().stream().map(t -> t.getName()).collect(Collectors.toSet()),
-       entity.getLists().stream().map(l -> l.getName()).collect(Collectors.toSet()),
-       0, 2.5, null, 0, false, "-"
     );
   }
 
@@ -64,12 +71,12 @@ public class ProblemMapper {
         entity.getSolvedAt());
   }
 
-  private String deriveDueLabel(LocalDate date) {
-    if (date == null) return "—";
+  private String deriveDueLabel(LocalDate due) {
+    if (due == null) return "Not started";
     LocalDate today = LocalDate.now();
-    if (date.isBefore(today))              return "Overdue";
-    if (date.equals(today))                return "Today";
-    if (date.equals(today.plusDays(1)))    return "Tomorrow";
-    return date.format(DateTimeFormatter.ofPattern("MMM d"));
+    if (due.isBefore(today)) return "Overdue";
+    if (due.isEqual(today)) return "Today";
+    if (due.isEqual(today.plusDays(1))) return "Tomorrow";
+    return "In " + ChronoUnit.DAYS.between(today, due) + " days";
   }
 }

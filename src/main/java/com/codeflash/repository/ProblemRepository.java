@@ -41,13 +41,12 @@ public interface ProblemRepository extends JpaRepository<ProblemEntity, Long> {
   List<ProblemEntity> findDueProblems();
 
   @Query("""
-     SELECT DISTINCT p FROM ProblemEntity p
-     JOIN SRSStateEntity s ON s.problemId = p.id
-     JOIN p.lists l
-     WHERE s.nextDueDate <= CURRENT_DATE
-     AND   l.name = :listName
-     ORDER BY s.nextDueDate ASC
-     """)
+    SELECT DISTINCT p FROM ProblemEntity p
+    JOIN SRSStateEntity s ON s.problemId = p.id
+    JOIN p.lists l
+    WHERE s.nextDueDate <= CURRENT_DATE
+    AND l.name = :listName
+    """)
   List<ProblemEntity> findDueProblemsInList(@Param("listName") String listName);
 
   @Query("""
@@ -76,4 +75,12 @@ public interface ProblemRepository extends JpaRepository<ProblemEntity, Long> {
       @Param("listName") String listName,
       @Param("tagName") String tagName
   );
+
+  @Query(value = """
+    SELECT pli.problem_id FROM problem_list_items pli
+    JOIN problem_lists pl ON pl.id = pli.problem_list_id
+    WHERE pl.name = :listName
+    ORDER BY pli.position ASC
+    """, nativeQuery = true)
+  List<Long> findOrderedProblemIdsByListName(@Param("listName") String listName);
 }

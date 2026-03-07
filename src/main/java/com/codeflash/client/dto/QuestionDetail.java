@@ -11,5 +11,5 @@ public record QuestionDetail(
     String title,
     String difficulty,
     List<TopicTag> topicTags,
-    List<CompanyTag> companyTags  // ← add this
+    List<CompanyTag> companyTags
 ) {}

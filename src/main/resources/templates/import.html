@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html th:replace="~{layout/base :: layout(~{::content})}">
+<th:block th:fragment="content">
+
+  <div class="row g-4">
+
+    <!-- ── Paste URL form ── -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <i class="bi bi-cloud-download"></i> Import Problems
+        </div>
+        <div class="card-body">
+
+          <!-- API error warning -->
+          <div class="alert alert-warning" th:if="${apiError != null}">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span th:text="${apiError}"></span>
+          </div>
+
+          <!-- Grind 175 (bundled) -->
+          <div class="mb-4">
+            <h6 class="text-muted small text-uppercase">Bundled</h6>
+            <div class="d-flex align-items-center justify-content-between p-3 border rounded">
+              <div>
+                <strong>Grind 175</strong>
+                <div class="text-muted small">Curated by seanprashad — loaded from local JSON</div>
+              </div>
+              <button class="btn btn-sm btn-primary"
+                      data-source="GRIND_175" data-param=""
+                      id="grindImportBtn">
+                <i class="bi bi-download"></i> Re-seed
+              </button>
+            </div>
+          </div>
+
+          <!-- Paste URL -->
+          <div class="mb-4">
+            <h6 class="text-muted small text-uppercase">Paste a URL or Slug</h6>
+            <p class="text-muted small mb-2">
+              Works with: LeetCode list URLs, study plan URLs, or a single problem slug.
+            </p>
+            <div class="input-group">
+              <input type="text" id="importUrl" class="form-control"
+                     placeholder="https://leetcode.com/list/abc123/ or two-sum"/>
+              <button class="btn btn-primary" id="autoImportBtn">
+                <i class="bi bi-magic"></i> Import
+              </button>
+            </div>
+            <small class="text-muted mt-1 d-block">
+              The app detects whether it's a list, study plan, or single problem automatically.
+            </small>
+          </div>
+
+          <!-- LeetCode lists -->
+          <div th:if="${!availableLists.empty}">
+            <h6 class="text-muted small text-uppercase">Your LeetCode Lists</h6>
+            <div class="list-group">
+              <div class="list-group-item d-flex justify-content-between align-items-center"
+                   th:each="l : ${availableLists}">
+                <span th:text="${l.name}">List name</span>
+                <button class="btn btn-sm btn-outline-primary lc-import-btn"
+                        th:data-hash="${l.idHash}">
+                  Import
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result toast -->
+          <div id="importResult" class="alert mt-3 d-none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Already imported lists ── -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <i class="bi bi-collection"></i> Imported Lists
+        </div>
+        <div class="list-group list-group-flush">
+          <div class="list-group-item d-flex justify-content-between align-items-center"
+               th:each="l : ${importedLists}">
+            <div>
+              <!-- Name display mode -->
+              <div class="d-flex align-items-center gap-2"
+                   th:id="'name-display-' + ${l.id}">
+                <span th:text="${l.name}" class="fw-medium">List</span>
+                <button class="btn btn-sm btn-link p-0 text-muted rename-btn"
+                        th:data-id="${l.id}"
+                        th:data-name="${l.name}">
+                  <i class="bi bi-pencil"></i>
+                </button>
+              </div>
+              <!-- Rename input mode (hidden by default) -->
+              <div class="d-flex align-items-center gap-2 d-none"
+                   th:id="'name-edit-' + ${l.id}">
+                <input type="text" class="form-control form-control-sm"
+                       style="width: 180px"
+                       th:id="'name-input-' + ${l.id}"
+                       th:value="${l.name}"/>
+                <button class="btn btn-sm btn-success submit-rename-btn"
+                        th:data-id="${l.id}">
+                  <i class="bi bi-check"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary cancel-rename-btn"
+                        th:data-id="${l.id}">
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+              <small class="text-muted" th:text="${l.source}">BUNDLED</small>
+            </div>
+            <a th:href="@{/problems(list=${l.name})}"
+               th:id="'browse-btn-' + ${l.id}"
+               class="btn btn-sm btn-outline-secondary">
+              Browse
+            </a>
+          </div>
+          <div class="list-group-item text-muted text-center py-3"
+               th:if="${importedLists.empty}">
+            No lists imported yet
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    document.getElementById('grindImportBtn').addEventListener('click', () => {
+      triggerImport('GRIND_175', '');
+    });
+
+    document.getElementById('autoImportBtn').addEventListener('click', () => {
+      const param = document.getElementById('importUrl').value.trim();
+      if (!param) return;
+      let source = 'MANUAL';
+      if (param.includes('/problem-list/') || param.includes('/list/')) source = 'LEETCODE_LIST';
+      if (param.includes('/studyplan/')) source = 'LEETCODE_STUDY_PLAN';
+      triggerImport(source, param);
+    });
+
+    document.querySelectorAll('.lc-import-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hash = btn.dataset.hash;
+        triggerImport('LEETCODE_LIST', `https://leetcode.com/problem-list/${hash}/`);
+      });
+    });
+
+    async function triggerImport(source, param) {
+      const resultDiv = document.getElementById('importResult');
+      resultDiv.className = 'alert alert-info mt-3';
+      resultDiv.textContent = 'Importing... this may take a moment.';
+
+      try {
+        const resp = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, param })
+        });
+        const data = await resp.json();
+
+        if (resp.ok) {
+          resultDiv.className = 'alert alert-success mt-3';
+          resultDiv.textContent =
+              `Done! ${data.imported} imported, ${data.skipped} skipped, ${data.failed} failed.`;
+          setTimeout(() => location.reload(), 2000);
+        } else {
+          resultDiv.className = 'alert alert-danger mt-3';
+          resultDiv.textContent = data.message || 'Import failed.';
+        }
+      } catch (e) {
+        resultDiv.className = 'alert alert-danger mt-3';
+        resultDiv.textContent = 'Network error. Please try again.';
+      }
+    }
+
+
+    document.addEventListener('click', e => {
+      const renameBtn = e.target.closest('.rename-btn');
+      if (renameBtn) {
+        showRenameInput(renameBtn.dataset.id, renameBtn.dataset.name);
+        return;
+      }
+      const submitBtn = e.target.closest('.submit-rename-btn');
+      if (submitBtn) {
+        submitRename(submitBtn.dataset.id);
+        return;
+      }
+      const cancelBtn = e.target.closest('.cancel-rename-btn');
+      if (cancelBtn) {
+        cancelRename(cancelBtn.dataset.id);
+        return;
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const input = e.target;
+      if (!input.id || !input.id.startsWith('name-input-')) return;
+      const id = input.id.replace('name-input-', '');
+      submitRename(id);
+    });
+
+    function showRenameInput(id, currentName) {
+      document.getElementById('name-display-' + id).classList.add('d-none');
+      document.getElementById('name-edit-' + id).classList.remove('d-none');
+      const input = document.getElementById('name-input-' + id);
+      input.value = currentName;
+      input.focus();
+      input.select();
+    }
+
+    function cancelRename(id) {
+      document.getElementById('name-edit-' + id).classList.add('d-none');
+      document.getElementById('name-display-' + id).classList.remove('d-none');
+    }
+
+    async function submitRename(id) {
+      const input = document.getElementById('name-input-' + id);
+      const newName = input.value.trim();
+      if (!newName) return;
+
+      try {
+        const resp = await fetch(`/api/lists/${id}/rename`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName })
+        });
+
+        if (resp.ok) {
+          const nameSpan = document.querySelector(`#name-display-${id} span`);
+          nameSpan.textContent = newName;
+          const browseBtn = document.getElementById('browse-btn-' + id);
+          browseBtn.href = `/problems?list=${encodeURIComponent(newName)}`;
+          cancelRename(id);
+        } else if (resp.status === 409) {
+          input.classList.add('is-invalid');
+          let err = input.nextElementSibling;
+          if (!err || !err.classList.contains('invalid-feedback')) {
+            err = document.createElement('div');
+            err.className = 'invalid-feedback';
+            input.after(err);
+          }
+          err.textContent = 'A list with that name already exists.';
+        } else {
+          alert('Rename failed. Please try again.');
+        }
+      } catch (e) {
+        alert('Network error. Please try again.');
+      }
+    }
+  </script>
+
+</th:block>
+</html>

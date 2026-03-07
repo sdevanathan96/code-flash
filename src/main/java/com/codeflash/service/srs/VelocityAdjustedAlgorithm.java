@@ -4,7 +4,6 @@ import com.codeflash.domain.ConfidenceRating;
 import com.codeflash.domain.SRSState;
 import com.codeflash.repository.SolveRecordRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,9 +12,9 @@ import java.time.LocalDateTime;
 public class VelocityAdjustedAlgorithm implements SRSAlgorithm {
 
   private static final double BASELINE_DAILY_SOLVES = 3.0;
-  private static final double MIN_VELOCITY_FACTOR   = 0.5;
+  private static final double MIN_VELOCITY_FACTOR   = 1.0;
   private static final double MAX_VELOCITY_FACTOR   = 3.0;
-  private static final int    VELOCITY_WINDOW_DAYS  = 7;
+  private static final int    VELOCITY_WINDOW_DAYS  = 3;
 
   private final SM2Algorithm sm2Algorithm;
   private final SolveRecordRepository solveRecordRepository;
