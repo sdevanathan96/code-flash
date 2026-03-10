@@ -27,11 +27,28 @@ logging:
     com.zaxxer.hikari: DEBUG
 
 leetcode:
+
   session-cookie: ""
   csrf-token: ""
 
 algorithm:
   type: velocity       # Options: sm2 | velocity
+  sm2:
+    min-ease-factor: 1.3
+    max-ease-factor: 2.5
+    initial-ease-factor: 2.5
+    again-ease-delta: -0.20
+    hard-ease-delta: -0.15
+    easy-ease-delta: 0.15
+    hard-interval-multiplier: 1.2
+    easy-interval-multiplier: 1.3
+    first-solve-interval: 1
+    second-solve-interval: 2
+  velocity:
+    baseline-daily-solves: 1.0
+    min-velocity-factor: 1.0
+    max-velocity-factor: 5.0
+    window-days: 3
 
 enrichment:
   enabled: true

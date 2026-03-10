@@ -75,14 +75,6 @@ public class ProblemPersistenceHelper {
   @Transactional
   public void enrichAllProblems(LeetCodeGraphQLClient client) {
     int batchSize = enrichmentConfig.getBatchSize();
-
-    Map<String, TagEntity> tagCache = tagRepository.findAll().stream()
-        .collect(Collectors.toMap(
-            t -> t.getName().toLowerCase(),
-            t -> t,
-            (a, b) -> a
-        ));
-
     int page = 0;
     int totalEnriched = 0;
 
@@ -92,6 +84,13 @@ public class ProblemPersistenceHelper {
           .getContent();
 
       if (batch.isEmpty()) break;
+
+      Map<String, TagEntity> tagCache = tagRepository.findAll().stream()
+          .collect(Collectors.toMap(
+              t -> t.getName().toLowerCase(),
+              t -> t,
+              (a, b) -> a
+          ));
 
       for (ProblemEntity p : batch) {
         try {

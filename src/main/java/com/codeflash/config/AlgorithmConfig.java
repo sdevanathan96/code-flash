@@ -10,22 +10,24 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@RequiredArgsConstructor
 public class AlgorithmConfig {
 
   @Value("${algorithm.type:sm2}")
   private String algorithmType;
 
+  private final AlgorithmProperties algorithmProperties;
+
   @Bean
-  public SRSAlgorithm srsAlgorithm(
-      SolveRecordRepository solveRecordRepository) {
+  public SRSAlgorithm srsAlgorithm(SolveRecordRepository solveRecordRepository) {
     return switch (algorithmType.toLowerCase()) {
-      case "sm2"      -> new SM2Algorithm();
+      case "sm2"      -> new SM2Algorithm(algorithmProperties);
       case "velocity" -> new VelocityAdjustedAlgorithm(
-          new SM2Algorithm(),
-          solveRecordRepository);
+          new SM2Algorithm(algorithmProperties),
+          solveRecordRepository,
+          algorithmProperties);
       default -> throw new IllegalStateException(
-          "Unknown algorithm type: '" + algorithmType + "'"
-      );
+          "Unknown algorithm type: '" + algorithmType + "'");
     };
   }
 }

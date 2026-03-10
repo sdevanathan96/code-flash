@@ -241,12 +241,21 @@
 
     </div>
   </div>
-
+  <div id="reviewMeta"
+       th:data-problem-id="${problem?.id}"
+       th:data-next-url="${nextUrl}"
+       style="display:none">
+  </div>
   <script>
-    const problemId = /*[[${problem?.id}]]*/ null;
-    const nextUrl   = /*[[${nextUrl}]]*/ '/review';
+    const meta = document.getElementById('reviewMeta');
+    const problemId = meta ? meta.dataset.problemId : null;
+    const nextUrl = meta ? meta.dataset.nextUrl : '/review';
 
     async function submitRating(confidence) {
+      if (!problemId || problemId === 'null') {
+        console.error('No problem loaded — cannot submit rating.');
+        return;
+      }
       const notes = document.getElementById('notesInput').value.trim();
 
       document.querySelectorAll('button[onclick]')
